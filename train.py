@@ -92,7 +92,6 @@ def main(data_path):
     print(f"MAE: {mae:,.0f} RUB")
     print("-" * 30)
 
-    # --- NEW: Calculate Permutation Importance ---
     print("Calculating feature importances...")
     perm_importance = permutation_importance(model, X_test, y_test, n_repeats= 2, random_state=42)
     
@@ -106,7 +105,7 @@ def main(data_path):
     
     joblib.dump(model_data, 'model.pkl')
     print("Model saved as 'model.pkl'")
-    # --- NEW: Generate Evaluation Plots ---
+    # Generate Evaluation Plots
     print("Generating evaluation plots...")
     plt.figure(figsize=(15, 6))
 
