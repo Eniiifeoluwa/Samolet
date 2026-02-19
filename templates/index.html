@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment Price Predictor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px; 
+            color: #333;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 { color: white; text-align: center; margin-bottom: 30px; font-size: 2.2em; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px; }
+        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.3); }
+        h2 { color: #667eea; margin-bottom: 20px; font-size: 1.4em; display: flex; align-items: center; gap: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9em; color: #555; }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #edf2f7; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            transition: all 0.2s;
+        }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            margin-top: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white;
+            box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        button:hover { transform: translateY(-1px); opacity: 0.95; }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        /* Result Section */
+        .result { 
+            background: white; 
+            border-radius: 12px; 
+            padding: 30px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); 
+            display: none; 
+            margin-top: 20px;
+        }
+        .result.show { display: block; animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .price-box { 
+            background: #f8fafc; 
+            border: 2px solid #e2e8f0;
+            padding: 30px; 
+            border-radius: 12px; 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .price-box h3 { font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 10px; }
+        .price-box .value { font-size: 3em; font-weight: 800; color: #1e293b; line-height: 1; }
+        .price-box .sub { font-size: 1.2em; color: #667eea; font-weight: 600; margin-top: 10px; }
+        
+        /* Explainability bars */
+        .explanation h3 { font-size: 1.2em; color: #1e293b; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+        .feature-row { margin-bottom: 18px; }
+        .feature-meta { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9em; }
+        .feature-name { font-weight: 600; color: #334155; }
+        .feature-weight { font-weight: 700; color: #667eea; }
+        .bar-container { background: #f1f5f9; height: 8px; border-radius: 10px; overflow: hidden; }
+        .bar-fill { background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; border-radius: 10px; transition: width 1s ease-out; }
+
+        /* Scraper status */
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.show { display: block; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error { background: #fff5f5; border-left: 4px solid #feb2b2; color: #c53030; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; font-size: 0.9em; }
+        .error.show { display: block; }
+        
+        @media (max-width: 850px) { .cards { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> Samolet Real Estate Price Engine</h1>
+        
+        <div class="cards">
+            <div class="card">
+                <h2>Manual Entry</h2>
+                <form id="manualForm">
+                    <div class="row">
+                        <div class="form-group">
+                            <label>Rooms</label>
+                            <input type="number" id="rooms" value="2" min="1" max="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Area (m²)</label>
+                            <input type="number" id="area" step="0.1" value="55.0" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label>Floor</label>
+                            <input type="number" id="floor" value="4" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Floors</label>
+                            <input type="number" id="floors_total" value="12" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label>Living Area (m²)</label>
+                            <input type="number" id="living_area" step="0.1" value="32.0">
+                        </div>
+                        <div class="form-group">
+                            <label>Kitchen Area (m²)</label>
+                            <input type="number" id="kitchen_area" step="0.1" value="10.5">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ceiling Height (m)</label>
+                        <input type="number" id="ceiling_height" step="0.05" value="2.7">
+                    </div>
+                    <button type="submit" id="manualBtn">Calculate Value</button>
+                </form>
+            </div>
+            
+            <div class="card">
+                <h2>🔗 Link Analysis</h2>
+                <form id="urlForm">
+                    <div class="form-group">
+                        <label>Apartment Listing URL</label>
+                        <input type="url" id="url" placeholder="https://example.ru/flat/123..." required>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 0.8em; margin-bottom: 15px;">
+                        Extracts layout data automatically via real-time scraping.
+                    </p>
+                    <button type="submit" id="urlBtn">Scrape & Predict</button>
+                </form>
+                
+                <div class="loading" id="urlLoading">
+                    <div class="spinner"></div>
+                    <p>Parsing listing details...</p>
+                </div>
+                
+                <div class="error" id="urlError"></div>
+                
+                <div id="scrapedInfo" style="margin-top: 20px; display: none; padding: 15px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                    <h4 style="color: #0369a1; font-size: 0.9em; margin-bottom: 8px;">Extraction Successful:</h4>
+                    <div id="scrapedContent" style="font-size: 0.85em; color: #0c4a6e; line-height: 1.6;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="result" id="result">
+            <div class="price-box">
+                <h3>Estimated Market Value</h3>
+                <div class="value" id="price">0 ₽</div>
+                <div class="sub" id="ppm">0 ₽/m²</div>
+            </div>
+            
+            <div class="explanation">
+                <h3>Model Interpretation (Feature Importance)</h3>
+                <div id="explanationContent">
+                    </div>
+            </div>
+            
+            <button onclick="reset()" style="background: #f1f5f9; color: #475569; box-shadow: none; margin-top: 30px;">New Estimation</button>
+        </div>
+    </div>
+    
+    <script>
+        const manualForm = document.getElementById('manualForm');
+        const urlForm = document.getElementById('urlForm');
+        const resultDiv = document.getElementById('result');
+
+        // Main prediction handler
+        async function getPrediction(endpoint, payload, isUrl = false) {
+            const btn = isUrl ? document.getElementById('urlBtn') : document.getElementById('manualBtn');
+            const loading = document.getElementById('urlLoading');
+            const errorDiv = document.getElementById('urlError');
+            const scrapedInfo = document.getElementById('scrapedInfo');
+
+            // Reset UI
+            btn.disabled = true;
+            if(isUrl) {
+                loading.classList.add('show');
+                errorDiv.classList.remove('show');
+                scrapedInfo.style.display = 'none';
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error);
+
+                // Update Price
+                document.getElementById('price').innerText = data.prediction.toLocaleString('ru-RU') + ' ₽';
+                document.getElementById('ppm').innerText = data.price_per_meter.toLocaleString('ru-RU') + ' ₽/m²';
+
+                // Update Scraped Info if applicable
+                if (isUrl && data.scraped_data) {
+                    const s = data.scraped_data;
+                    document.getElementById('scrapedContent').innerHTML = `
+                        Rooms: <strong>${s.RoomCount || 'N/A'}</strong> | 
+                        Area: <strong>${s.TotalArea || 'N/A'} m²</strong> | 
+                        Floor: <strong>${s.Floor || 'N/A'}/${s.FloorsTotal || 'N/A'}</strong>
+                    `;
+                    scrapedInfo.style.display = 'block';
+                }
+
+                // Update Explanation Bars
+                const explContainer = document.getElementById('explanationContent');
+                explContainer.innerHTML = '';
+                
+                // Sort by importance and take top 6
+                const sortedExpl = data.explanation.sort((a,b) => b.importance - a.importance).slice(0, 6);
+                
+                sortedExpl.forEach(item => {
+                    const percentage = (item.importance * 100).toFixed(1);
+                    explContainer.innerHTML += `
+                        <div class="feature-row">
+                            <div class="feature-meta">
+                                <span class="feature-name">${item.feature}</span>
+                                <span class="feature-weight">${percentage}%</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                resultDiv.classList.add('show');
+                resultDiv.scrollIntoView({behavior: 'smooth'});
+
+            } catch (err) {
+                if(isUrl) {
+                    errorDiv.innerText = "Error: " + err.message;
+                    errorDiv.classList.add('show');
+                } else {
+                    alert("Calculation Error: " + err.message);
+                }
+            } finally {
+                btn.disabled = false;
+                if(isUrl) loading.classList.remove('show');
+            }
+        }
+
+        manualForm.onsubmit = (e) => {
+            e.preventDefault();
+            const payload = {
+                rooms: document.getElementById('rooms').value,
+                area: document.getElementById('area').value,
+                floor: document.getElementById('floor').value,
+                floors_total: document.getElementById('floors_total').value,
+                living_area: document.getElementById('living_area').value,
+                kitchen_area: document.getElementById('kitchen_area').value,
+                ceiling_height: document.getElementById('ceiling_height').value
+            };
+            getPrediction('/predict_manual', payload);
+        };
+
+        urlForm.onsubmit = (e) => {
+            e.preventDefault();
+            const url = document.getElementById('url').value;
+            getPrediction('/predict_url', { url }, true);
+        };
+
+        function reset() {
+            resultDiv.classList.remove('show');
+            window.scrollTo({top: 0, behavior: 'smooth'});
+            urlForm.reset();
+            document.getElementById('scrapedInfo').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
